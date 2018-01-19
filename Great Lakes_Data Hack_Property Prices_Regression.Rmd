@@ -1,0 +1,645 @@
+---
+title: "Great lakes_Datahack"
+author: "Saurabh Khodake"
+date: "January 13, 2018"
+output: html_document
+---
+
+##Creating training and testing datasets  
+
+
+```{r, include=FALSE}
+setwd("C:\\Users\\nirva\\IdeaProjects\\Analytics Vidhya/Great lakes sale")
+pp_train<-read.csv("train.csv")
+pp_test<-read.csv("test.csv")
+pp_temp1<-read.csv("test.csv")
+head(pp_train,n=1)
+head(pp_test,n=1)
+pp_test$SALES_PRICE<-NA
+pp<-rbind(pp_train,pp_test)
+pp<-pp[,-1]
+```
+
+##Understanding the variables
+
+```{r}
+str(pp)
+summary(pp)
+
+```
+##Functions for histograms
+```{r, include=FALSE}
+hplt=function(data,x)
+{
+for(i in x)
+{
+hp<-ggplot(data,aes(x=data[,x]))+geom_histogram(bins = 30,na.rm = T)+
+xlab(colnames(data[x]))+ylab("Count")
+return(hp)
+}
+}
+
+dhplots <- function(data,fun,ncol) 
+{
+col=ncol(data)
+k=1
+j<-numeric()
+for(i in 1:col)
+{
+if(is.numeric(data[,i])| (is.integer(data[,i]))==TRUE)
+  {
+j[k]<-i
+k=k+1
+  }
+}
+plt <- list()
+for (i in j) 
+  {
+  p <- fun(data=data,x=i)
+  plt<- c(plt, list(p))
+}
+m1<-marrangeGrob(plt, ncol=ncol,nrow=2)
+m1
+}
+```
+
+##Functions for density plots
+
+```{r}
+dplt=function(data,x)
+{
+for(i in x)
+{
+dp<-ggplot(data,aes(x=data[,x]))+geom_density(na.rm = T)+
+xlab(colnames(data[x]))+ylab("Count")
+return(dp)
+} 
+}
+
+ddplots <- function(data,fun,ncol) 
+{
+col=ncol(data)
+k=1
+j<-numeric()
+for(i in 1:col)
+{
+if(is.numeric(data[,i])| (is.integer(data[,i]))==TRUE)
+{
+j[k]<-i
+k=k+1
+}
+}
+plt <- list()
+  for (i in j) {
+    p <- fun(data=data,x=i)
+    plt<- c(plt, list(p))
+  }
+m1<-marrangeGrob(plt, ncol=ncol,nrow=2)
+m1
+}
+
+```
+
+
+##Histogram
+```{r}
+require(ggplot2)
+require(gridExtra)
+dhplots(fun=hplt,data = pp_train[,-1],ncol = 2)
+dhplots(fun=hplt,data = pp_test[,-1],ncol = 2)
+```
+
+##Density plots
+```{r, eval=FALSE, include=FALSE}
+ddplots(fun=dplt,data=pp_train[,-1],ncol = 2)
+ddplots(fun=dplt,data=pp_test[,-1],ncol = 2)
+
+```
+
+
+##Area variable
+
+```{r, warning=FALSE}
+library(dplyr)
+library(sqldf)
+library(ggplot2)
+library(gridExtra)
+unique(pp$AREA)
+pp$AREA<-as.character(pp$AREA)
+pp<-pp %>% mutate(AREA=ifelse(AREA=="Ann Nagar" | AREA=="Ana Nagar",yes = "Anna Nagar",no = AREA))
+pp<-pp %>% mutate(AREA=ifelse(AREA=="Chrmpet" | AREA=="Chormpet" | AREA=="Chrompt",yes ="Chrompet",no =AREA))
+pp<-pp %>% mutate(AREA=ifelse(AREA=="TNagar",yes = "T Nagar",no = AREA))
+pp<-pp %>% mutate(AREA=ifelse(AREA=="Karapakam",yes ="Karapakkam",no = AREA))
+pp<-pp %>% mutate(AREA=ifelse(AREA=="Adyr",yes = "Adyar",no = AREA))
+pp<-pp %>% mutate(AREA=ifelse(AREA=="Velchery",yes = "Velachery",no = AREA))
+pp<-pp %>% mutate(AREA=ifelse(AREA=="KKNagar",yes = "KK Nagar",no = AREA))
+unique(pp$AREA)
+pp$AREA<-as.factor(pp$AREA)
+SPAR<-sqldf("select AREA,avg(SALES_PRICE) as SP  from pp group by 1 ")
+SPAR$SP
+SPAR_br<-ggplot(data=SPAR,aes(x=AREA,y=SP/1000))+geom_col(fill="blue",position = "dodge",width = 0.5)
+SPAR_bx<-ggplot(data=pp,aes(x=AREA,y=SALES_PRICE/1000))+geom_boxplot(fill="red",position = "dodge")
+grob2<-list(SPAR_br,SPAR_bx)
+marrangeGrob(grob2,nrow = 2,ncol = 1)
+```
+
+##Interior sq ft variable (INT_SQFT)
+
+```{r, message=FALSE, warning=FALSE}
+summary(pp$INT_SQFT)
+SPIS<-sqldf("select INT_SQFT,avg(SALES_PRICE) as SP  from pp group by 1 ")
+SPIS_hg<-ggplot(data=SPIS,aes(x=INT_SQFT))+geom_histogram(fill="blue",binwidth = 10)
+SPIS_sc<-ggplot(data=pp,aes(x=INT_SQFT,y=SALES_PRICE/1000))+geom_point(color="red")+geom_smooth(method=lm,se=FALSE)
+grob2<-list(SPIS_hg,SPIS_sc)
+marrangeGrob(grob2,nrow = 2,ncol = 1)
+
+```
+
+##Plot of Area,Int_sq.ft and sales price
+
+```{r, warning=FALSE}
+SPARIS_bx<-ggplot(data=pp,aes(x=AREA,y=SALES_PRICE/1000,col=INT_SQFT))+geom_col()
+SPARIS_bx
+SPARIS_ji<-ggplot(data=pp,aes(x=INT_SQFT,y=SALES_PRICE/1000,col=AREA))+geom_jitter(size=1)
+grob3<-list(SPARIS_bx,SPARIS_ji)
+marrangeGrob(grobs = grob3,nrow=2,ncol =1 )
+```
+
+
+##DATE SALE variable
+
+```{r, include=FALSE}
+library(lubridate)
+pp$DATE_SALE<-dmy(pp$DATE_SALE)
+
+```
+
+##Date Build variable
+
+```{r}
+pp$DATE_BUILD<-dmy(pp$DATE_BUILD)
+
+```
+
+##Creating a new variable---No of years before sale
+
+```{r}
+pp$total_yrs<-as.numeric(difftime(pp$DATE_SALE,pp$DATE_BUILD,units = "days"))
+summary(pp$total_yrs)
+par(mfrow=c(1,2))
+hist(pp$total_yrs,col="red")
+hist(sqrt(pp$total_yrs),col = "blue")
+
+```
+
+##Distance from the mainroad variable---DIST_MAINROAD
+
+```{r, include=FALSE}
+summary(pp$DIST_MAINROAD)
+hist(pp$DIST_MAINROAD,breaks =100,col = "blue")
+```
+
+##Number of bedrooms_N_BEDROOM
+
+```{r}
+summary(pp$N_BEDROOM)
+pp[is.na(pp$N_BEDROOM),]
+hist(pp$N_BEDROOM,col = "blue")
+table(pp$N_BEDROOM)
+```
+
+##Number of bathrooms---N_BATHROOM
+
+```{r}
+summary(pp$N_BATHROOM)
+pp[is.na(pp$N_BATHROOM),]
+hist(pp$N_BATHROOM,col = "blue")
+table(pp$N_BATHROOM)
+```
+
+##Total Number of Rooms--N_ROOM
+
+```{r}
+summary(pp$N_ROOM)
+hist(pp$N_ROOM,col = "blue")
+table(pp$N_ROOM)
+
+```
+
+##Imputing missing values in N_BEDROOM and N_BATHROOM
+
+```{r}
+library(ggplot2)
+
+ggplot(data = pp,aes(x =N_BEDROOM,fill=as.factor(N_BATHROOM)))+geom_bar()
+
+ggplot(data = pp,aes(x =N_ROOM,fill=as.factor(N_BEDROOM)))+geom_bar(width = 0.5)
+
+##So if the bedroom is 1 or 2 bathroom is mostly 1
+
+pp[is.na(pp$N_BATHROOM),"N_BATHROOM"]<-1
+
+##SO if the total number of rooms is 4 most of the houses have 2 Bedrooms
+
+pp[is.na(pp$N_BEDROOM),"N_BEDROOM"]<-2
+
+```
+
+##Sale Condtion variable_SALE_COND
+
+```{r}
+pp$SALE_COND<-as.character(pp$SALE_COND)
+unique(pp$SALE_COND)
+pp<-pp %>% mutate(SALE_COND=ifelse(SALE_COND=="Partiall" | SALE_COND=="PartiaLl",yes = "Partial",no =SALE_COND))
+pp<-pp %>% mutate(SALE_COND=ifelse(SALE_COND=="Ab Normal",yes = "AbNormal",no =SALE_COND))
+pp<-pp %>% mutate(SALE_COND=ifelse(SALE_COND=="Adj Land",yes = "AdjLand",no =SALE_COND))
+unique(pp$SALE_COND)
+pp$SALE_COND<-as.factor(pp$SALE_COND)
+
+```
+
+##Park facilities variable_PARK_FACIL
+
+```{r}
+levels(pp$PARK_FACIL)
+levels(pp$PARK_FACIL)[2]<-levels(pp$PARK_FACIL)[1]
+table(pp$PARK_FACIL)
+SPPF<-sqldf("select PARK_FACIL,avg(SALES_PRICE) as SP  from pp group by PARK_FACIL ")
+ggplot(data=SPPF,aes(x=PARK_FACIL,y=SP/1000))+geom_bar(fill="darkblue",stat = "Identity",width = 0.5)
+```
+
+##Building type variable_BUILDTYPE
+
+```{r, warning=FALSE}
+levels(pp$BUILDTYPE)
+pp$BUILDTYPE<-as.character(pp$BUILDTYPE)
+unique(pp$BUILDTYPE)
+pp<-pp %>% mutate(BUILDTYPE=ifelse(BUILDTYPE=="Commercil" | BUILDTYPE=="Comercial",yes="Commercial",no=BUILDTYPE))
+pp<-pp %>% mutate(BUILDTYPE=ifelse(BUILDTYPE=="Other",yes="Others",no=BUILDTYPE))
+unique(pp$BUILDTYPE)
+pp$BUILDTYPE<-as.factor(pp$BUILDTYPE)
+
+##PLOTS
+
+SPBT<-sqldf("select BUILDTYPE,avg(SALES_PRICE) as SP  from pp group by BUILDTYPE ")
+SPBT<-ggplot(data=pp,aes(x=BUILDTYPE,y=SALES_PRICE/1000))+geom_bar(width=0.5,stat="Identity",color="darkblue")
+SPISBT<-ggplot(data=pp,aes(x=INT_SQFT,y=SALES_PRICE/1000,col=BUILDTYPE))+geom_jitter(size=1)
+grob2<-list(SPBT,SPISBT)
+marrangeGrob(grob2,nrow = 1,ncol =1)
+
+```
+
+##UTILITY_AVAIL
+
+```{r, message=FALSE, warning=FALSE}
+levels(pp$UTILITY_AVAIL)
+levels(pp$UTILITY_AVAIL)[1]<-levels(pp$UTILITY_AVAIL)[2]
+SPUA<-sqldf("select UTILITY_AVAIL,avg(SALES_PRICE) as SP from pp group by UTILITY_AVAIL ")
+SPUA_br<-ggplot(data=SPUA,aes(x=UTILITY_AVAIL,y=SP/1000))+geom_bar(width=0.5,stat="Identity",fill="darkblue")
+SPUABT<-sqldf("select UTILITY_AVAIL,avg(SALES_PRICE) as SP,BUILDTYPE from pp group by UTILITY_AVAIL,BUILDTYPE ")
+SPUABT_br<-ggplot(data=pp,aes(x=UTILITY_AVAIL,y=SALES_PRICE/1000,fill=BUILDTYPE))+geom_bar(width=0.5,stat="Identity")
+grob4<-list(SPUA_br,SPUABT_br)
+marrangeGrob(grob4,nrow = 2,ncol =1)
+
+```
+
+##STREET variable
+
+```{r}
+pp$STREET<-as.character(pp$STREET)
+unique(pp$STREET)
+pp<-pp %>% mutate(STREET=ifelse(STREET=="No Access",yes="NoAccess",no=STREET))
+pp<-pp %>% mutate(STREET=ifelse(STREET=="Pavd",yes="Paved",no=STREET))
+pp$STREET<-as.factor(pp$STREET)
+```
+
+##MZZONE variable
+
+```{r, message=FALSE, warning=FALSE}
+library(sqldf)
+table(pp$MZZONE)
+SPMZ<-sqldf("select MZZONE,avg(SALES_PRICE) as SP  from pp group by MZZONE ")
+SPMZ_br<-ggplot(data=SPMZ,aes(x=MZZONE,y=SP/1000))+geom_bar(fill="darkblue",stat = "Identity",width = 0.5)
+SPISMZ<-ggplot(data=pp,aes(x=INT_SQFT,y=SALES_PRICE/1000,col=MZZONE))+geom_jitter(size=1)
+grob5<-list(SPMZ_br,SPISMZ)
+marrangeGrob(grob5,nrow = 1,ncol =1)
+
+```
+
+
+##Quality variables
+
+```{r}
+par(mfrow=c(2,2))
+hist(pp$QS_ROOMS,col = "red")
+hist(pp$QS_BATHROOM,col = "blue")
+hist(pp$QS_BEDROOM,col = "red")
+hist(pp$QS_OVERALL,col = "blue")
+```
+
+##Sq.ft to number of rooms
+
+```{r}
+pp$avg_sqft<-pp$INT_SQFT/pp$N_ROOM
+summary(pp$avg_sqft)
+par(mfrow=c(1,2))
+hist(pp$avg_sqft,col="blue")
+hist(sqrt(pp$avg_sqft),col="red")
+
+```
+
+
+##Missing values in Overall quality variable
+
+```{r}
+summary(pp$QS_OVERALL)
+pp[is.na(pp$QS_OVERALL),]
+pp$avg_qly<-apply(X = pp[15:17],MARGIN = 1,mean)
+cor(x =pp[,23],y = pp[,18],use = "complete.obs")
+ggplot(data=pp,aes(x=avg_qly))+geom_histogram(fill="darkblue",bins = 50)
+```
+
+##Imputing the Overall quality variable using linear regression
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+set.seed(290391)
+library(mice)
+imp_pp_qly<-mice(pp[,c(18,23)],method = "norm.boot",m = 10,maxit=10,seed = 290391)
+imp_pp_qly<-complete(imp_pp_qly)
+pp[,c(18)]<-imp_pp_qly$QS_OVERALL
+```
+
+##REG_FEE
+
+```{r, warning=FALSE}
+summary(pp$REG_FEE)
+cor(x =pp[,21],y = pp[,19],use = "complete.obs")
+par(mfrow=c(1,2))
+hist(pp$REG_FEE,col="blue")
+hist(sqrt(pp$REG_FEE),col="red")
+ggplot(data=pp,aes(x=REG_FEE/1000,y=SALES_PRICE/1000))+geom_point(size=1,shape=15,color="blue")+geom_smooth(method=lm,se=FALSE,fullrange=TRUE)
+```
+
+##Creating a variable called Guideline value as Registration fee is 1% of it
+
+```{r}
+pp$Guide_val<-pp$REG_FEE/0.01
+summary(pp$Guide_val)
+ggplot(data=pp,aes(y=Guide_val/1000,x=total_yrs/365,col=INT_SQFT))+geom_jitter(size=1,shape=15)
+```
+
+##Commission paid_COMMIS
+
+```{r, warning=FALSE}
+summary(pp$COMMIS)
+cor(x =pp[,21],y = pp[,20],use = "complete.obs")
+par(mfrow=c(1,2))
+hist(pp$COMMIS,col="blue")
+hist(sqrt(pp$COMMIS),col="red")
+ggplot(data=pp,aes(x=COMMIS/1000,y=SALES_PRICE/1000))+geom_point(size=1,shape=15,color="red")+geom_smooth(method=lm,se=FALSE,fullrange=TRUE)
+
+```
+
+##Stamp Duty
+
+```{r}
+pp$Stamp_duty<-pp$Guide_val*0.08
+summary(pp$Stamp_duty)
+ggplot(data=pp,aes(y=Guide_val/1000,x=total_yrs/365,col=INT_SQFT))+geom_jitter(size=1,shape=15)
+```
+
+##Other charges which is Reg_fee,stamp_duty and commission
+```{r}
+pp$oth_chgs<-apply(pp[,c(19,20,26)],MARGIN = 1,sum)
+summary(pp$oth_chgs)
+```
+
+##Sales_Price
+
+```{r}
+summary(pp$SALES_PRICE)
+par(mfrow=c(1,2))
+hist(pp$SALES_PRICE,col="red")
+hist(sqrt(pp$SALES_PRICE),col="blue")
+```
+
+##Age of the house _ total_yrs
+
+```{r, warning=FALSE}
+summary(pp$total_yrs)
+par(mfrow=c(1,2))
+hist(pp$total_yrs,col="blue")
+hist(sqrt(pp$total_yrs),col="red")
+
+YRSP<-ggplot(data=pp,aes(x=total_yrs/365,y=SALES_PRICE/1000))+geom_point(size=1,shape=15,color="blue")+geom_smooth(method=lm,se=FALSE,color="darkred")
+YRCO<-ggplot(data=pp,aes(x=total_yrs/365,y=COMMIS/1000))+geom_point(size=1,shape=15,color="red")+geom_smooth(method=lm,se=FALSE)
+grob1<-list(YRSP,YRCO)
+marrangeGrob(grob1,nrow = 1,ncol =2 )
+```
+##Removing the some variables
+
+```{r}
+library(caret)
+#pp_cplot<-cplot(data = pp[,-21])
+#findCorrelation(pp_cplot,cutoff = 0.6,names = TRUE)
+pp_back<-pp
+```
+
+##
+
+```{r}
+pp<-pp_back
+pp<-pp[,-c(3,10,15:17,19,24,25,26)]
+```
+
+##SQRT transformation of the sales price variable
+
+```{r}
+pp$SALES_PRICE<-sqrt(pp$SALES_PRICE)
+
+pp$SALES_PRICE<-(pp$SALES_PRICE)^2
+```
+
+##Binning important variables
+
+```{r}
+bin_insq<-cut(pp$INT_SQFT,labels=1:4,breaks=c(0,1000,1500,2000,2500),ordered_result=FALSE)
+pp$bin_insq<-bin_insq
+
+##Binning distance from the main road
+
+bin_dist<-cut(pp$DIST_MAINROAD,labels=1:4,breaks=c(-1,50,100,150,200),ordered_result=FALSE)
+pp$bin_dist<-bin_dist
+
+##Binning total yrs
+
+bin_ttl_yrs<-cut(pp$total_yrs/365,labels=1:3,breaks=c(0,20,40,55),ordered_result=FALSE)
+pp$bin_ttl_yrs<-bin_ttl_yrs
+
+##Binning commission
+
+bin_comis<-cut(pp$COMMIS/1000,labels=1:3,breaks=c(0,75,150,525),ordered_result=FALSE)
+
+```
+
+##Collapsing MZZONE variable
+
+```{r, warning=FALSE}
+#MZ_temp<-pp %>% mutate(MZZONE=ifelse(MZZONE=="A"|MZZONE=="C"|MZZONE=="I",yes="others",no=MZZONE))
+#pp$AREA<-as.character(pp$AREA)
+##pp<-pp %>% mutate(AREA=ifelse(AREA=="Adyar"|AREA=="Chrompet",yes="ADC",no=AREA))
+##pp<-pp%>% mutate(AREA=ifelse(AREA=="Anna Nagar"|AREA=="T Nagar",yes="ANT",no=AREA))
+#AR_temp$AREA<-as.factor(AR_temp$AREA)
+#pp$AREA<-as.factor(pp$AREA)
+```
+
+##Interaction of the categorical variables
+
+```{r, warning=FALSE}
+pp$ARBT<-interaction(pp$AREA,pp$BUILDTYPE)
+pp$INBT<-interaction(pp$BUILDTYPE,pp$bin_insq)
+pp$TRBT<-interaction(pp$BUILDTYPE,pp$N_ROOM)
+pp$BRBT<-interaction(pp$BUILDTYPE,pp$N_BEDROOM)
+pp$ARBR<-interaction(pp$AREA,pp$N_ROOM)
+pp$CMBR<-interaction(bin_comis,pp$N_ROOM)
+```
+
+##Some changes to BR_BHR variable because of unwanted levels
+
+```{r, warning=FALSE}
+dmy_pp<-dummyVars(data=pp,formula =~ARBR,levelsOnly = TRUE,fullRank = TRUE)
+pp_dmy_pre<-predict(dmy_pp,pp)
+pp<-cbind(pp[,-26],pp_dmy_pre)
+dmy_rm<-nearZeroVar(x = pp,freqCut = 100/0,names = FALSE)
+pp<-pp[,-c(dmy_rm)]
+
+dmy_pp<-dummyVars(data=pp,formula =~CMBR,levelsOnly = TRUE,fullRank = TRUE)
+pp_dmy_pre<-predict(dmy_pp,pp)
+pp<-cbind(pp[,-26],pp_dmy_pre)
+dmy_rm<-nearZeroVar(x = pp,freqCut = 100/0,names = FALSE)
+pp<-pp[,-c(dmy_rm)]
+
+```
+
+##Bringing the train and test datasets
+
+```{r}
+pp_train<-pp[!is.na(pp$SALES_PRICE),]
+pp_test<-pp[is.na(pp$SALES_PRICE),]
+
+```
+
+##Model
+```{r}
+set.seed(290391)
+
+tr_cntl=trainControl(method="cv",number=5)
+lm_pp<- train(SALES_PRICE~.,data=pp_train,
+          method = "ridge",trControl=tr_cntl,preProcess=c("scale","center"))
+lm_pp_pred<-predict(object = lm_pp,newdata = pp_test)
+lm_pp
+```
+
+##Submission
+
+```{r}
+#submitlasso <- data.frame(PRT_ID=pp_temp1$PRT_ID,SALES_PRICE=lm_pp_pred)
+#write.csv(submitlasso, "submitlasso.csv",row.names = FALSE)
+
+```
+
+##XGBOOST
+```{r, eval=FALSE, include=FALSE}
+# set.seed(290391)
+# pp_train1_fea<-pp_train[,c(1,2,3,4,5,6,7,8,9,11,13,14,16:26,15)]
+# pp_test_fea<-pp_test[,c(1,2,3,4,5,6,7,8,9,11,13,14,16:26,15)]
+# 
+# dmy_pp<-dummyVars(data=pp_train1_fea[,-24],formula =~.,levelsOnly = FALSE,fullRank = TRUE)
+# pp_dmy_pre<-predict(dmy_pp,pp_train1_fea)
+# pp_train2<-cbind(pp_train1_fea[,25],pp_dmy_pre)
+# 
+# dmy_pp<-dummyVars(data=pp_test_fea[,-24],formula =~.,levelsOnly = FALSE,fullRank = TRUE)
+# pp_dmy_pre<-predict(dmy_pp,pp_test_fea)
+# pp_test2<-cbind(pp_test_fea[,24],pp_dmy_pre)
+# 
+# 
+# ControlParamteres <- trainControl(method = "cv",
+#                   number = 5)
+# 
+# parametersGrid <-  expand.grid(eta=c(0.2,0.5),nrounds=100,lambda=c(0.5,0.9),alpha=c(0.5,0.9))
+# 
+# xgb_pp <- caret::train(y=pp_train2[,1],
+#               x=pp_train2[,-c(1)],method="xgbLinear",
+#                              trControl=ControlParamteres,tuneGrid=parametersGrid)
+# 
+# 
+# xgb_pp_pred<- predict(xgb_pp, newdata=pp_test2)
+# xgb_pp
+```
+```{r}
+index=sample(x = nrow(pp_train),size = 5000)
+X_train=pp_train[index,]
+y_test=pp_train[-index,]
+
+pred_train=predict(lm_pp,newdata = X_train[,-15])
+
+RMSE(pred_train,obs = X_train$SALES_PRICE)
+
+pred_test=predict(lm_pp,newdata = y_test[,-15])
+
+RMSE(pred_test,obs = y_test$SALES_PRICE)
+
+
+```
+```{r}
+library(devtools)
+#install_github("h2oai/h2o-3/h2o-r/ensemble/h2oEnsemble-package")
+require(h2oEnsemble)
+# h2o.init(nthreads = -1)
+# h2o.removeAll()
+# 
+# write.csv(X_train,file = 'Xtra.csv')
+# write.csv(y_test,file = 'ytest.csv')
+# tr1=h2o.importFile(path = 'Xtra.csv')
+# tes1=h2o.importFile(path = 'ytest.csv')
+
+
+```
+
+```{r}
+# learner <- c("h2o.randomForest.wrapper", 
+#              "h2o.gbm.wrapper")
+# metaLearner=c("h2o.gbm.wrapper")
+
+#y='SALES_PRICE'
+
+
+#setdiff(names(tr1),y)
+
+
+# fit <- h2o.ensemble(x = 1:(ncol(tr1)-1), y = 'C57', 
+#                     training_frame = tr1, 
+#                     family = 'gaussian', 
+#                     learner = learner, 
+#                     metalearner = metaLearner,
+#                     cvControl = list(V = 3))
+# 
+# fit <- h2o.ensemble(x = 1:(ncol(train_frame.hex)-1), y = ncol(train_frame.hex), 
+#                     train_frame.hex, validation_frame=valid_frame.hex,
+#                     family = "gaussian", 
+#                     learner = learner, 
+#                     metalearner = metalearner,
+#                     cvControl = list(V = 5))	     
+# 
+
+
+```
+
+```{r}
+# pred=predict(object = fit,newdata = tes1)
+# pred$pred
+# as.data.frame(pred$pred) 
+
+# head(pred)
+```
+
